@@ -8,7 +8,9 @@
 
 ## 安装
 
-提供关于如何安装和设置您的项目的说明。包括所需的依赖项和任何其他配置步骤。
+go get github.com/realzuojianxiang/real-logging/logging
+go get -u github.com/realzuojianxiang/real-logging/logging
+
 
 ## 使用方法
 
