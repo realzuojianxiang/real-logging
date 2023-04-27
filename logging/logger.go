@@ -42,7 +42,7 @@ func getLogFileWriter(logFilePath string) zapcore.WriteSyncer {
 		}
 	}
 
-	logFilePath = filepath.Join(logDir, fmt.Sprintf("%s_%s.log", logFilePath, time.Now().Format("2006-01-02")))
+	logFilePath = filepath.Join(logDir, fmt.Sprintf("%s_%s.log", logFilePath, time.Now().Format("20060102")))
 	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		panic("Failed to open log file: " + err.Error())
