@@ -10,12 +10,22 @@ import (
 	"time"
 )
 
+const (
+	defaultLogDir      = "./logs"
+	defaultLogFileName = "20060102"
+)
+
 var log *zap.Logger
 
 func InitLogger(moduleName, logFilePath string) {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	fileWriter, err := getLogFileWriter(logFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize log file writer: %v", err))
+	}
 
 	core := zapcore.NewTee(
 		zapcore.NewCore(
@@ -25,7 +35,7 @@ func InitLogger(moduleName, logFilePath string) {
 		),
 		zapcore.NewCore(
 			zapcore.NewJSONEncoder(encoderConfig),
-			zapcore.AddSync(getLogFileWriter(logFilePath)),
+			zapcore.AddSync(fileWriter),
 			zapcore.InfoLevel,
 		),
 	)
@@ -33,43 +43,64 @@ func InitLogger(moduleName, logFilePath string) {
 	log = zap.New(core).Named(moduleName)
 }
 
-func getLogFileWriter(logFilePath string) zapcore.WriteSyncer {
-	logDir := "./logs"
-	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		err := os.Mkdir(logDir, os.ModePerm)
+func getLogFileWriter(logFilePath string) (zapcore.WriteSyncer, error) {
+	if _, err := os.Stat(defaultLogDir); os.IsNotExist(err) {
+		err := os.Mkdir(defaultLogDir, 0755)
 		if err != nil {
-			return nil
+			return nil, fmt.Errorf("failed to create log directory: %v", err)
 		}
 	}
 
-	logFilePath = filepath.Join(logDir, fmt.Sprintf("%s_%s.log", logFilePath, time.Now().Format("20060102")))
+	logFilePath = filepath.Join(defaultLogDir, fmt.Sprintf("%s_%s.log", logFilePath, time.Now().Format(defaultLogFileName)))
 	file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		panic("Failed to open log file: " + err.Error())
+		return nil, fmt.Errorf("failed to open log file: %v", err)
 	}
-	return zapcore.AddSync(file)
+	return zapcore.AddSync(file), nil
 }
 
-func getModuleName() string {
-	_, filename, _, _ := runtime.Caller(1)
-	moduleName := filepath.Base(filepath.Dir(filename))
-	return moduleName
+func appendCaller(fields []zap.Field) []zap.Field {
+	_, file, line, ok := runtime.Caller(3)
+	if ok {
+		fields = append(fields, zap.String("file", file), zap.Int("line", line))
+	}
+	return fields
 }
 
 func Info(msg string, tags ...zap.Field) {
-	log.Info(msg, tags...)
+	entry := log.Check(zapcore.InfoLevel, msg)
+	if entry != nil {
+		entry.Write(append(appendCaller(tags), zap.String("caller", getCaller()))...)
+	}
 }
 
 func Warn(msg string, tags ...zap.Field) {
-	log.Warn(msg, tags...)
+	entry := log.Check(zapcore.WarnLevel, msg)
+	if entry != nil {
+		entry.Write(append(appendCaller(tags), zap.String("caller", getCaller()))...)
+	}
 }
 
 func Error(msg string, tags ...zap.Field) {
-	log.Error(msg, tags...)
+	entry := log.Check(zapcore.ErrorLevel, msg)
+	if entry != nil {
+		entry.Write(append(appendCaller(tags), zap.String("caller", getCaller()))...)
+	}
 }
 
 func Debug(msg string, tags ...zap.Field) {
-	log.Debug(msg, tags...)
+	entry := log.Check(zapcore.DebugLevel, msg)
+	if entry != nil {
+		entry.Write(append(appendCaller(tags), zap.String("caller", getCaller()))...)
+	}
+}
+
+func getCaller() string {
+	_, file, line, ok := runtime.Caller(3)
+	if ok {
+		return fmt.Sprintf("%s:%d", file, line)
+	}
+	return "unknown"
 }
 
 func Sync() error {
