@@ -47,3 +47,7 @@ go get -u github.com/realzuojianxiang/real-logging/logging
 ## 常见问题
 
 列出一些常见问题和解答，以帮助用户解决常见问题。
+git add .
+git commit -m "first commit"
+git push -u origin master
+```

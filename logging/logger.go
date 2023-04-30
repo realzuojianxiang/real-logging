@@ -60,7 +60,7 @@ func getLogFileWriter(logFilePath string) (zapcore.WriteSyncer, error) {
 }
 
 func appendCaller(fields []zap.Field) []zap.Field {
-	_, file, line, ok := runtime.Caller(3)
+	_, file, line, ok := runtime.Caller(2)
 	if ok {
 		fields = append(fields, zap.String("file", file), zap.Int("line", line))
 	}
